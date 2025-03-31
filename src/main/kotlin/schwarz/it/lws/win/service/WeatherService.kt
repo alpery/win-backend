@@ -1,19 +1,31 @@
 package schwarz.it.lws.win.service
 
 import io.github.cdimascio.dotenv.dotenv
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestTemplate
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.InitializingBean
 import schwarz.it.lws.win.model.OpenWeatherMapResponse
 import schwarz.it.lws.win.model.WeatherData
 import schwarz.it.lws.win.repository.WeatherRepository
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 @Service
 class WeatherService @Autowired constructor(
     private val weatherRepository: WeatherRepository
-) {
+) : InitializingBean {
+
+    /**
+     * Initializes the service and performs cleanup of old weather data at startup
+     */
+    override fun afterPropertiesSet() {
+        val deletedCount = deleteOldWeatherData()
+        println("Startup cleanup completed: $deletedCount old weather records deleted")
+    }
 
     // Load environment variables from .env file
     private val dotenv = dotenv {
@@ -81,5 +93,24 @@ class WeatherService @Autowired constructor(
         }
 
         return weatherData
+    }
+
+    /**
+     * Deletes all weather data with forecast date before the current date.
+     * Returns the number of records deleted.
+     */
+    fun deleteOldWeatherData(): Int {
+        val today = LocalDate.now()
+        val startOfDay = LocalDateTime.of(today, LocalTime.MIN)
+        return weatherRepository.deleteByForecastDateBefore(startOfDay)
+    }
+
+    /**
+     * Scheduled task that runs daily at midnight to delete old weather data
+     */
+    @Scheduled(cron = "0 0 0 * * ?") // Run at midnight every day
+    fun scheduledCleanup() {
+        val deletedCount = deleteOldWeatherData()
+        println("Scheduled cleanup completed: $deletedCount old weather records deleted")
     }
 }

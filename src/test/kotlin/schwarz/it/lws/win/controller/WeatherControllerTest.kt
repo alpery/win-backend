@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Primary
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import schwarz.it.lws.win.model.WeatherData
@@ -100,4 +101,5 @@ class WeatherControllerTest {
             .andExpect(jsonPath("$[0].temperature").value(20.5))
             .andExpect(jsonPath("$[0].description").value("Clear sky"))
     }
+
 }

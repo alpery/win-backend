@@ -10,7 +10,9 @@ import org.junit.jupiter.api.assertThrows
 import org.springframework.web.client.RestTemplate
 import schwarz.it.lws.win.model.*
 import schwarz.it.lws.win.repository.WeatherRepository
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -176,6 +178,42 @@ class WeatherServiceTest {
         verify { weatherRepository.saveAll<WeatherData>(any()) }
         assertEquals(1, result.size)
         assertEquals(testCity, result[0].city)
+    }
+
+    @Test
+    fun `deleteOldWeatherData should delete data older than current date`() {
+        // Given
+        val deletedCount = 5
+        val dateSlot = slot<LocalDateTime>()
+
+        every { 
+            weatherRepository.deleteByForecastDateBefore(capture(dateSlot)) 
+        } returns deletedCount
+
+        // When
+        val result = weatherService.deleteOldWeatherData()
+
+        // Then
+        verify { weatherRepository.deleteByForecastDateBefore(any()) }
+        assertEquals(deletedCount, result)
+
+        // Verify that the date passed to the repository method is the start of the current day
+        val today = LocalDate.now()
+        val startOfDay = LocalDateTime.of(today, LocalTime.MIN)
+        assertEquals(startOfDay, dateSlot.captured)
+    }
+
+    @Test
+    fun `afterPropertiesSet should call deleteOldWeatherData`() {
+        // Given
+        val deletedCount = 3
+        every { weatherRepository.deleteByForecastDateBefore(any()) } returns deletedCount
+
+        // When
+        weatherService.afterPropertiesSet()
+
+        // Then
+        verify { weatherRepository.deleteByForecastDateBefore(any()) }
     }
 
     private fun createMockOpenWeatherMapResponse(): OpenWeatherMapResponse {

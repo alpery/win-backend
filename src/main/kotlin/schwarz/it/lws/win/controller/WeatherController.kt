@@ -40,4 +40,5 @@ class WeatherController(private val weatherService: WeatherService) {
         val weatherData = weatherService.getWeatherForecast(city, startDateTime, endDateTime)
         return ResponseEntity.ok(weatherData)
     }
+
 }
