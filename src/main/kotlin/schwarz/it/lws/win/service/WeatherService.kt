@@ -82,13 +82,17 @@ class WeatherService @Autowired constructor(
 
     /**
      * Gets weather forecast data for the given city from the database.
-     * If no data is found, fetches it from the OpenWeatherMap API and saves it to the database.
+     * If no data is found or if there's not enough data for a full 5-day forecast,
+     * fetches it from the OpenWeatherMap API and saves it to the database.
      */
     fun getOrFetchWeatherForecast(city: String, lang: String = "en"): List<WeatherData> {
         val weatherData = getWeatherForecast(city)
 
-        // If no data is found in the database, fetch it from the API
-        if (weatherData.isEmpty()) {
+        // Get the number of unique forecast dates in the data
+        val uniqueDates = weatherData.map { it.forecastDate.toLocalDate() }.distinct()
+
+        // If no data is found or if there are fewer than 5 unique dates, fetch new data from the API
+        if (weatherData.isEmpty() || uniqueDates.size < 5) {
             return fetchAndSaveWeatherForecast(city, lang)
         }
 

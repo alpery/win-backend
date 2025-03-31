@@ -125,9 +125,67 @@ class WeatherServiceTest {
     }
 
     @Test
-    fun `getOrFetchWeatherForecast should return data from database when it exists`() {
+    fun `getOrFetchWeatherForecast should return data from database when it exists with at least 5 unique dates`() {
         // Given
-        val mockWeatherData = createMockWeatherData()
+        // Create weather data for 5 unique dates
+        val today = LocalDate.now()
+        val weatherDataList = listOf(
+            WeatherData(
+                id = 1L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(9, 0)),
+                temperature = 20.5,
+                minTemperature = 18.0,
+                maxTemperature = 22.0,
+                humidity = 65,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = 2L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(1), LocalTime.of(9, 0)),
+                temperature = 21.0,
+                minTemperature = 18.5,
+                maxTemperature = 23.0,
+                humidity = 62,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = 3L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(2), LocalTime.of(9, 0)),
+                temperature = 22.0,
+                minTemperature = 19.0,
+                maxTemperature = 24.0,
+                humidity = 60,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = 4L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(3), LocalTime.of(9, 0)),
+                temperature = 21.5,
+                minTemperature = 18.5,
+                maxTemperature = 23.5,
+                humidity = 63,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = 5L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(4), LocalTime.of(9, 0)),
+                temperature = 20.0,
+                minTemperature = 17.5,
+                maxTemperature = 22.5,
+                humidity = 67,
+                description = "Clear sky",
+                iconCode = "01d"
+            )
+        )
 
         every { 
             weatherRepository.findByCityAndForecastDateBetween(
@@ -135,16 +193,16 @@ class WeatherServiceTest {
                 any<LocalDateTime>(), 
                 any<LocalDateTime>()
             ) 
-        } returns mockWeatherData
+        } returns weatherDataList
 
         // When
         val result = weatherService.getOrFetchWeatherForecast(testCity, testLang)
 
         // Then
         verify { weatherRepository.findByCityAndForecastDateBetween(testCity, any<LocalDateTime>(), any<LocalDateTime>()) }
-        // Verify that fetchAndSaveWeatherForecast was not called
+        // Verify that fetchAndSaveWeatherForecast was not called because there are 5 unique dates
         verify(exactly = 0) { restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) }
-        assertEquals(1, result.size)
+        assertEquals(5, result.size)
         assertEquals(testCity, result[0].city)
     }
 
@@ -174,6 +232,76 @@ class WeatherServiceTest {
 
         // Then
         verify { weatherRepository.findByCityAndForecastDateBetween(testCity, any<LocalDateTime>(), any<LocalDateTime>()) }
+        verify { restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) }
+        verify { weatherRepository.saveAll<WeatherData>(any()) }
+        assertEquals(1, result.size)
+        assertEquals(testCity, result[0].city)
+    }
+
+    @Test
+    fun `getOrFetchWeatherForecast should fetch data from API when there are fewer than 5 unique dates`() {
+        // Given
+        val mockResponse = createMockOpenWeatherMapResponse()
+
+        // Create weather data for only 2 unique dates
+        val today = LocalDate.now()
+        val weatherDataList = listOf(
+            WeatherData(
+                id = 1L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(9, 0)),
+                temperature = 20.5,
+                minTemperature = 18.0,
+                maxTemperature = 22.0,
+                humidity = 65,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = 2L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(15, 0)),
+                temperature = 22.5,
+                minTemperature = 19.0,
+                maxTemperature = 24.0,
+                humidity = 60,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = 3L,
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(1), LocalTime.of(9, 0)),
+                temperature = 21.0,
+                minTemperature = 18.5,
+                maxTemperature = 23.0,
+                humidity = 62,
+                description = "Clear sky",
+                iconCode = "01d"
+            )
+        )
+
+        every { 
+            weatherRepository.findByCityAndForecastDateBetween(
+                testCity, 
+                any<LocalDateTime>(), 
+                any<LocalDateTime>()
+            ) 
+        } returns weatherDataList
+
+        every { 
+            restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) 
+        } returns mockResponse
+
+        val savedWeatherDataSlot = slot<List<WeatherData>>()
+        every { weatherRepository.saveAll<WeatherData>(capture(savedWeatherDataSlot)) } answers { savedWeatherDataSlot.captured }
+
+        // When
+        val result = weatherService.getOrFetchWeatherForecast(testCity, testLang)
+
+        // Then
+        verify { weatherRepository.findByCityAndForecastDateBetween(testCity, any<LocalDateTime>(), any<LocalDateTime>()) }
+        // Verify that fetchAndSaveWeatherForecast was called because there are fewer than 5 unique dates
         verify { restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) }
         verify { weatherRepository.saveAll<WeatherData>(any()) }
         assertEquals(1, result.size)
