@@ -122,6 +122,62 @@ class WeatherServiceTest {
         assertEquals(testCity, result[0].city)
     }
 
+    @Test
+    fun `getOrFetchWeatherForecast should return data from database when it exists`() {
+        // Given
+        val mockWeatherData = createMockWeatherData()
+
+        every { 
+            weatherRepository.findByCityAndForecastDateBetween(
+                testCity, 
+                any<LocalDateTime>(), 
+                any<LocalDateTime>()
+            ) 
+        } returns mockWeatherData
+
+        // When
+        val result = weatherService.getOrFetchWeatherForecast(testCity, testLang)
+
+        // Then
+        verify { weatherRepository.findByCityAndForecastDateBetween(testCity, any<LocalDateTime>(), any<LocalDateTime>()) }
+        // Verify that fetchAndSaveWeatherForecast was not called
+        verify(exactly = 0) { restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) }
+        assertEquals(1, result.size)
+        assertEquals(testCity, result[0].city)
+    }
+
+    @Test
+    fun `getOrFetchWeatherForecast should fetch data from API when it does not exist in database`() {
+        // Given
+        val mockResponse = createMockOpenWeatherMapResponse()
+        val emptyList = emptyList<WeatherData>()
+
+        every { 
+            weatherRepository.findByCityAndForecastDateBetween(
+                testCity, 
+                any<LocalDateTime>(), 
+                any<LocalDateTime>()
+            ) 
+        } returns emptyList
+
+        every { 
+            restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) 
+        } returns mockResponse
+
+        val savedWeatherDataSlot = slot<List<WeatherData>>()
+        every { weatherRepository.saveAll<WeatherData>(capture(savedWeatherDataSlot)) } answers { savedWeatherDataSlot.captured }
+
+        // When
+        val result = weatherService.getOrFetchWeatherForecast(testCity, testLang)
+
+        // Then
+        verify { weatherRepository.findByCityAndForecastDateBetween(testCity, any<LocalDateTime>(), any<LocalDateTime>()) }
+        verify { restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) }
+        verify { weatherRepository.saveAll<WeatherData>(any()) }
+        assertEquals(1, result.size)
+        assertEquals(testCity, result[0].city)
+    }
+
     private fun createMockOpenWeatherMapResponse(): OpenWeatherMapResponse {
         val weather = Weather(
             id = 800,

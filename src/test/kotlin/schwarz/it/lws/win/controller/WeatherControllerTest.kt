@@ -61,30 +61,14 @@ class WeatherControllerTest {
     }
 
     @Test
-    fun `fetchWeatherForCity should return weather data`() {
-        // Given
-        every { weatherService.fetchAndSaveWeatherForecast(testCity, testLang) } returns testWeatherData
-
-        // When/Then
-        mockMvc.perform(
-            get("/api/weather/fetch/$testCity")
-                .param("lang", testLang)
-                .contentType(MediaType.APPLICATION_JSON)
-        )
-            .andExpect(status().isOk)
-            .andExpect(jsonPath("$[0].city").value(testCity))
-            .andExpect(jsonPath("$[0].temperature").value(20.5))
-            .andExpect(jsonPath("$[0].description").value("Clear sky"))
-    }
-
-    @Test
     fun `getWeatherForCity should return weather data`() {
         // Given
-        every { weatherService.getWeatherForecast(testCity) } returns testWeatherData
+        every { weatherService.getOrFetchWeatherForecast(testCity, testLang) } returns testWeatherData
 
         // When/Then
         mockMvc.perform(
             get("/api/weather/$testCity")
+                .param("lang", testLang)
                 .contentType(MediaType.APPLICATION_JSON)
         )
             .andExpect(status().isOk)

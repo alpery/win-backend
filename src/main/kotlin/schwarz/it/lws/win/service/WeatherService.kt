@@ -67,4 +67,19 @@ class WeatherService @Autowired constructor(
     fun getWeatherForecast(city: String, startDate: LocalDateTime, endDate: LocalDateTime): List<WeatherData> {
         return weatherRepository.findByCityAndForecastDateBetween(city, startDate, endDate)
     }
+
+    /**
+     * Gets weather forecast data for the given city from the database.
+     * If no data is found, fetches it from the OpenWeatherMap API and saves it to the database.
+     */
+    fun getOrFetchWeatherForecast(city: String, lang: String = "en"): List<WeatherData> {
+        val weatherData = getWeatherForecast(city)
+
+        // If no data is found in the database, fetch it from the API
+        if (weatherData.isEmpty()) {
+            return fetchAndSaveWeatherForecast(city, lang)
+        }
+
+        return weatherData
+    }
 }

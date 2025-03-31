@@ -14,24 +14,15 @@ import java.time.LocalTime
 class WeatherController(private val weatherService: WeatherService) {
 
     /**
-     * Fetches weather forecast data from OpenWeatherMap API for the given city
-     * and saves it to the database
-     */
-    @GetMapping("/fetch/{city}")
-    fun fetchWeatherForCity(
-        @PathVariable city: String,
-        @RequestParam(required = false, defaultValue = "en") lang: String
-    ): ResponseEntity<List<WeatherData>> {
-        val weatherData = weatherService.fetchAndSaveWeatherForecast(city, lang)
-        return ResponseEntity.ok(weatherData)
-    }
-
-    /**
-     * Gets weather forecast data for the given city from the database
+     * Gets weather forecast data for the given city from the database.
+     * If no data is found, fetches it from the OpenWeatherMap API and saves it to the database.
      */
     @GetMapping("/{city}")
-    fun getWeatherForCity(@PathVariable city: String): ResponseEntity<List<WeatherData>> {
-        val weatherData = weatherService.getWeatherForecast(city)
+    fun getWeatherForCity(
+        @PathVariable city: String,
+        @RequestParam(required = false, defaultValue = "de") lang: String
+    ): ResponseEntity<List<WeatherData>> {
+        val weatherData = weatherService.getOrFetchWeatherForecast(city, lang)
         return ResponseEntity.ok(weatherData)
     }
 
