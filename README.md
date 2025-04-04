@@ -86,6 +86,20 @@ If you have another PostgreSQL instance running, you have two options:
   - Password: win_pass
 - **Redis**: Cache running on port 6379
 
+## API Endpoints
+
+### Weather API
+
+- `GET /api/weather/{city}` - Get weather forecast for a city
+- `GET /api/weather/{city}/range?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD` - Get weather forecast for a city within a date range
+
+### Health Check
+
+- `GET /api/health` - Check the health of the application
+  - Returns 200 OK if the application is healthy
+  - Returns 503 Service Unavailable if there are issues (e.g., database connection problems)
+  - Response includes status of the application and its dependencies
+
 ## Viewing Logs
 
 To view logs for a specific service:
