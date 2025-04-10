@@ -309,7 +309,7 @@ class WeatherServiceTest {
     }
 
     @Test
-    fun `deleteOldWeatherData should delete data older than current date`() {
+    fun `deleteOldWeatherData should delete data older than the first day of the previous month`() {
         // Given
         val deletedCount = 5
         val dateSlot = slot<LocalDateTime>()
@@ -325,10 +325,12 @@ class WeatherServiceTest {
         verify { weatherRepository.deleteByForecastDateBefore(any()) }
         assertEquals(deletedCount, result)
 
-        // Verify that the date passed to the repository method is the start of the current day
+        // Verify that the date passed to the repository method is the start of the previous month
         val today = LocalDate.now()
-        val startOfDay = LocalDateTime.of(today, LocalTime.MIN)
-        assertEquals(startOfDay, dateSlot.captured)
+        val firstDayOfCurrentMonth = today.withDayOfMonth(1)
+        val firstDayOfPreviousMonth = firstDayOfCurrentMonth.minusMonths(1)
+        val startOfPreviousMonth = LocalDateTime.of(firstDayOfPreviousMonth, LocalTime.MIN)
+        assertEquals(startOfPreviousMonth, dateSlot.captured)
     }
 
     @Test

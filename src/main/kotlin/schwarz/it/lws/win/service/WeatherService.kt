@@ -100,17 +100,21 @@ class WeatherService @Autowired constructor(
     }
 
     /**
-     * Deletes all weather data with forecast date before the current date.
+     * Deletes all weather data with forecast date before the first day of the previous month.
+     * This ensures that data from the current month and the previous month are retained.
      * Returns the number of records deleted.
      */
     fun deleteOldWeatherData(): Int {
         val today = LocalDate.now()
-        val startOfDay = LocalDateTime.of(today, LocalTime.MIN)
-        return weatherRepository.deleteByForecastDateBefore(startOfDay)
+        val firstDayOfCurrentMonth = today.withDayOfMonth(1)
+        val firstDayOfPreviousMonth = firstDayOfCurrentMonth.minusMonths(1)
+        val startOfPreviousMonth = LocalDateTime.of(firstDayOfPreviousMonth, LocalTime.MIN)
+        return weatherRepository.deleteByForecastDateBefore(startOfPreviousMonth)
     }
 
     /**
-     * Scheduled task that runs daily at midnight to delete old weather data
+     * Scheduled task that runs daily at midnight to delete old weather data,
+     * keeping data from the current month and the previous month
      */
     @Scheduled(cron = "0 0 0 * * ?") // Run at midnight every day
     fun scheduledCleanup() {
