@@ -14,10 +14,16 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class WeatherServiceTest {
+
+    // Helper function to generate deterministic UUIDs for testing
+    private fun createTestUUID(number: Int): UUID {
+        return UUID.fromString("00000000-0000-0000-0000-${String.format("%012d", number)}")
+    }
 
     private lateinit var weatherService: WeatherService
     private lateinit var weatherRepository: WeatherRepository
@@ -131,7 +137,7 @@ class WeatherServiceTest {
         val today = LocalDate.now()
         val weatherDataList = listOf(
             WeatherData(
-                id = 1L,
+                id = createTestUUID(1),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today, LocalTime.of(9, 0)),
                 temperature = 20.5,
@@ -142,7 +148,7 @@ class WeatherServiceTest {
                 iconCode = "01d"
             ),
             WeatherData(
-                id = 2L,
+                id = createTestUUID(2),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today.plusDays(1), LocalTime.of(9, 0)),
                 temperature = 21.0,
@@ -153,7 +159,7 @@ class WeatherServiceTest {
                 iconCode = "01d"
             ),
             WeatherData(
-                id = 3L,
+                id = createTestUUID(3),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today.plusDays(2), LocalTime.of(9, 0)),
                 temperature = 22.0,
@@ -164,7 +170,7 @@ class WeatherServiceTest {
                 iconCode = "01d"
             ),
             WeatherData(
-                id = 4L,
+                id = createTestUUID(4),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today.plusDays(3), LocalTime.of(9, 0)),
                 temperature = 21.5,
@@ -175,7 +181,7 @@ class WeatherServiceTest {
                 iconCode = "01d"
             ),
             WeatherData(
-                id = 5L,
+                id = createTestUUID(5),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today.plusDays(4), LocalTime.of(9, 0)),
                 temperature = 20.0,
@@ -247,7 +253,7 @@ class WeatherServiceTest {
         val today = LocalDate.now()
         val weatherDataList = listOf(
             WeatherData(
-                id = 1L,
+                id = createTestUUID(1),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today, LocalTime.of(9, 0)),
                 temperature = 20.5,
@@ -258,7 +264,7 @@ class WeatherServiceTest {
                 iconCode = "01d"
             ),
             WeatherData(
-                id = 2L,
+                id = createTestUUID(2),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today, LocalTime.of(15, 0)),
                 temperature = 22.5,
@@ -269,7 +275,7 @@ class WeatherServiceTest {
                 iconCode = "01d"
             ),
             WeatherData(
-                id = 3L,
+                id = createTestUUID(3),
                 city = testCity,
                 forecastDate = LocalDateTime.of(today.plusDays(1), LocalTime.of(9, 0)),
                 temperature = 21.0,
@@ -309,7 +315,7 @@ class WeatherServiceTest {
     }
 
     @Test
-    fun `deleteOldWeatherData should delete data older than the first day of the previous month`() {
+    fun `deleteOldWeatherData should delete data older than current date`() {
         // Given
         val deletedCount = 5
         val dateSlot = slot<LocalDateTime>()
@@ -325,12 +331,10 @@ class WeatherServiceTest {
         verify { weatherRepository.deleteByForecastDateBefore(any()) }
         assertEquals(deletedCount, result)
 
-        // Verify that the date passed to the repository method is the start of the previous month
+        // Verify that the date passed to the repository method is the start of the current day
         val today = LocalDate.now()
-        val firstDayOfCurrentMonth = today.withDayOfMonth(1)
-        val firstDayOfPreviousMonth = firstDayOfCurrentMonth.minusMonths(1)
-        val startOfPreviousMonth = LocalDateTime.of(firstDayOfPreviousMonth, LocalTime.MIN)
-        assertEquals(startOfPreviousMonth, dateSlot.captured)
+        val startOfDay = LocalDateTime.of(today, LocalTime.MIN)
+        assertEquals(startOfDay, dateSlot.captured)
     }
 
     @Test
@@ -344,6 +348,211 @@ class WeatherServiceTest {
 
         // Then
         verify { weatherRepository.deleteByForecastDateBefore(any()) }
+    }
+
+    @Test
+    fun `getTransformedWeatherForecast should return 3-hourly forecasts for first day and daily summaries for subsequent days`() {
+        // Given
+        val today = LocalDate.now()
+
+        // Create weather data with multiple forecasts per day for 3 days
+        val weatherDataList = mutableListOf<WeatherData>()
+
+        // Mock the RestTemplate in case getOrFetchWeatherForecast decides to fetch new data
+        val mockResponse = createMockOpenWeatherMapResponse()
+        every { 
+            restTemplate.getForObject(any<String>(), eq(OpenWeatherMapResponse::class.java)) 
+        } returns mockResponse
+
+        val savedWeatherDataSlot = slot<List<WeatherData>>()
+        every { weatherRepository.saveAll<WeatherData>(capture(savedWeatherDataSlot)) } answers { savedWeatherDataSlot.captured }
+
+        // First day - 3 forecasts
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(1),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(9, 0)),
+                temperature = 20.0,
+                minTemperature = 18.0,
+                maxTemperature = 22.0,
+                humidity = 65,
+                description = "Clear sky",
+                iconCode = "01d"
+            )
+        )
+
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(2),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(12, 0)),
+                temperature = 22.0,
+                minTemperature = 20.0,
+                maxTemperature = 24.0,
+                humidity = 60,
+                description = "Clear sky",
+                iconCode = "01d"
+            )
+        )
+
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(3),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(15, 0)),
+                temperature = 24.0,
+                minTemperature = 22.0,
+                maxTemperature = 26.0,
+                humidity = 55,
+                description = "Clear sky",
+                iconCode = "01d"
+            )
+        )
+
+        // Second day - 3 forecasts
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(4),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(1), LocalTime.of(9, 0)),
+                temperature = 19.0,
+                minTemperature = 17.0,
+                maxTemperature = 21.0,
+                humidity = 70,
+                description = "Partly cloudy",
+                iconCode = "02d"
+            )
+        )
+
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(5),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(1), LocalTime.of(12, 0)),
+                temperature = 21.0,
+                minTemperature = 19.0,
+                maxTemperature = 23.0,
+                humidity = 65,
+                description = "Partly cloudy",
+                iconCode = "02d"
+            )
+        )
+
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(6),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(1), LocalTime.of(15, 0)),
+                temperature = 23.0,
+                minTemperature = 21.0,
+                maxTemperature = 25.0,
+                humidity = 60,
+                description = "Clear sky",
+                iconCode = "01d"
+            )
+        )
+
+        // Third day - 3 forecasts
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(7),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(2), LocalTime.of(9, 0)),
+                temperature = 18.0,
+                minTemperature = 16.0,
+                maxTemperature = 20.0,
+                humidity = 75,
+                description = "Cloudy",
+                iconCode = "03d"
+            )
+        )
+
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(8),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(2), LocalTime.of(12, 0)),
+                temperature = 20.0,
+                minTemperature = 18.0,
+                maxTemperature = 22.0,
+                humidity = 70,
+                description = "Cloudy",
+                iconCode = "03d"
+            )
+        )
+
+        weatherDataList.add(
+            WeatherData(
+                id = createTestUUID(9),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today.plusDays(2), LocalTime.of(15, 0)),
+                temperature = 22.0,
+                minTemperature = 20.0,
+                maxTemperature = 24.0,
+                humidity = 65,
+                description = "Cloudy",
+                iconCode = "03d"
+            )
+        )
+
+        // Mock the repository to return our test data when queried
+        every { 
+            weatherRepository.findByCityAndForecastDateBetween(
+                testCity, 
+                any<LocalDateTime>(), 
+                any<LocalDateTime>()
+            ) 
+        } returns weatherDataList
+
+        // When - directly test the transformWeatherData method
+        val result = weatherService.transformWeatherData(weatherDataList)
+
+        // Debug logging
+        println("[DEBUG_LOG] Weather data list size: ${weatherDataList.size}")
+        println("[DEBUG_LOG] Result size: ${result.size}")
+        println("[DEBUG_LOG] Weather data dates: ${weatherDataList.map { it.forecastDate.toLocalDate() }.distinct()}")
+        println("[DEBUG_LOG] Result dates: ${result.map { it.forecastDate.toLocalDate() }.distinct()}")
+        println("[DEBUG_LOG] Today: ${today}")
+
+        // Then
+        // Verify that the result contains all 3 forecasts for the first day
+        assertEquals(5, result.size, "Result should contain 3 forecasts for first day and 1 summary for each of the 2 subsequent days")
+
+        // First day should have 3 forecasts
+        val firstDayForecasts = result.filter { it.forecastDate.toLocalDate() == today }
+        assertEquals(3, firstDayForecasts.size, "First day should have 3 forecasts")
+
+        // Verify the first day forecasts are the original ones
+        assertEquals(20.0, firstDayForecasts[0].temperature)
+        assertEquals(22.0, firstDayForecasts[1].temperature)
+        assertEquals(24.0, firstDayForecasts[2].temperature)
+
+        // Second day should have 1 summary forecast
+        val secondDayForecasts = result.filter { it.forecastDate.toLocalDate() == today.plusDays(1) }
+        assertEquals(1, secondDayForecasts.size, "Second day should have 1 summary forecast")
+
+        // Verify the second day summary has the correct values
+        val secondDaySummary = secondDayForecasts[0]
+        assertEquals(21.0, secondDaySummary.temperature, 0.01, "Second day summary should have average temperature")
+        assertEquals(17.0, secondDaySummary.minTemperature, "Second day summary should have minimum temperature")
+        assertEquals(25.0, secondDaySummary.maxTemperature, "Second day summary should have maximum temperature")
+        assertEquals(65, secondDaySummary.humidity, "Second day summary should have average humidity")
+        assertEquals("Partly cloudy", secondDaySummary.description, "Second day summary should have most common description")
+        assertEquals("02d", secondDaySummary.iconCode, "Second day summary should have most common icon code")
+
+        // Third day should have 1 summary forecast
+        val thirdDayForecasts = result.filter { it.forecastDate.toLocalDate() == today.plusDays(2) }
+        assertEquals(1, thirdDayForecasts.size, "Third day should have 1 summary forecast")
+
+        // Verify the third day summary has the correct values
+        val thirdDaySummary = thirdDayForecasts[0]
+        assertEquals(20.0, thirdDaySummary.temperature, 0.01, "Third day summary should have average temperature")
+        assertEquals(16.0, thirdDaySummary.minTemperature, "Third day summary should have minimum temperature")
+        assertEquals(24.0, thirdDaySummary.maxTemperature, "Third day summary should have maximum temperature")
+        assertEquals(70, thirdDaySummary.humidity, "Third day summary should have average humidity")
+        assertEquals("Cloudy", thirdDaySummary.description, "Third day summary should have most common description")
+        assertEquals("03d", thirdDaySummary.iconCode, "Third day summary should have most common icon code")
     }
 
     private fun createMockOpenWeatherMapResponse(): OpenWeatherMapResponse {
@@ -402,7 +611,7 @@ class WeatherServiceTest {
     private fun createMockWeatherData(): List<WeatherData> {
         return listOf(
             WeatherData(
-                id = 1L,
+                id = createTestUUID(1),
                 city = testCity,
                 forecastDate = testDate,
                 temperature = 20.5,

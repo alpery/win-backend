@@ -20,6 +20,7 @@ import schwarz.it.lws.win.model.WeatherData
 import schwarz.it.lws.win.service.WeatherService
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,7 +44,7 @@ class WeatherControllerTest {
     private val testDate = LocalDateTime.now()
     private val testWeatherData = listOf(
         WeatherData(
-            id = 1L,
+            id = UUID.fromString("00000000-0000-0000-0000-000000000001"),
             city = testCity,
             forecastDate = testDate,
             temperature = 20.5,
@@ -64,7 +65,7 @@ class WeatherControllerTest {
     @Test
     fun `getWeatherForCity should return weather data`() {
         // Given
-        every { weatherService.getOrFetchWeatherForecast(testCity, testLang) } returns testWeatherData
+        every { weatherService.getTransformedWeatherForecast(testCity, testLang) } returns testWeatherData
 
         // When/Then
         mockMvc.perform(

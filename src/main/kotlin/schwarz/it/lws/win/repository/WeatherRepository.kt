@@ -6,8 +6,9 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.transaction.annotation.Transactional
 import schwarz.it.lws.win.model.WeatherData
 import java.time.LocalDateTime
+import java.util.UUID
 
-interface WeatherRepository : JpaRepository<WeatherData, Long> {
+interface WeatherRepository : JpaRepository<WeatherData, UUID> {
     fun findByCityAndForecastDateBetween(
         city: String,
         startDate: LocalDateTime,

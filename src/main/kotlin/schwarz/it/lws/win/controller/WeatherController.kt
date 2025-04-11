@@ -16,13 +16,14 @@ class WeatherController(private val weatherService: WeatherService) {
     /**
      * Gets weather forecast data for the given city from the database.
      * If no data is found, fetches it from the OpenWeatherMap API and saves it to the database.
+     * Returns 3-hourly forecasts for the first day and a single summary forecast for each subsequent day.
      */
     @GetMapping("/{city}")
     fun getWeatherForCity(
         @PathVariable city: String,
         @RequestParam(required = false, defaultValue = "de") lang: String
     ): ResponseEntity<List<WeatherData>> {
-        val weatherData = weatherService.getOrFetchWeatherForecast(city, lang)
+        val weatherData = weatherService.getTransformedWeatherForecast(city, lang)
         return ResponseEntity.ok(weatherData)
     }
 

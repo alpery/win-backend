@@ -100,21 +100,101 @@ class WeatherService @Autowired constructor(
     }
 
     /**
-     * Deletes all weather data with forecast date before the first day of the previous month.
-     * This ensures that data from the current month and the previous month are retained.
+     * Gets weather forecast data for the given city and transforms it to show:
+     * - 3-hourly forecasts for the first day
+     * - A single summary forecast for each subsequent day
+     */
+    fun getTransformedWeatherForecast(city: String, lang: String = "en"): List<WeatherData> {
+        val weatherData = getOrFetchWeatherForecast(city, lang)
+        return transformWeatherData(weatherData)
+    }
+
+    /**
+     * Transforms weather data to show:
+     * - 3-hourly forecasts for the first day
+     * - A single summary forecast for each subsequent day
+     */
+    fun transformWeatherData(weatherData: List<WeatherData>): List<WeatherData> {
+        if (weatherData.isEmpty()) {
+            return emptyList()
+        }
+
+        // Group forecasts by date
+        val forecastsByDate = weatherData.groupBy { it.forecastDate.toLocalDate() }
+
+        // Sort dates to ensure they're in chronological order
+        val sortedDates = forecastsByDate.keys.sorted()
+
+        if (sortedDates.isEmpty()) {
+            return emptyList()
+        }
+
+        val result = mutableListOf<WeatherData>()
+
+        // For the first day, keep all 3-hourly forecasts
+        val firstDay = sortedDates.first()
+        forecastsByDate[firstDay]?.let { result.addAll(it) }
+
+        // For subsequent days, create a daily summary
+        sortedDates.drop(1).forEach { date ->
+            forecastsByDate[date]?.let { forecasts ->
+                if (forecasts.isNotEmpty()) {
+                    // Create a summary forecast for the day
+                    val summary = createDailySummary(forecasts, date)
+                    result.add(summary)
+                }
+            }
+        }
+
+        return result
+    }
+
+    /**
+     * Creates a daily summary forecast from a list of forecasts for a specific date
+     */
+    private fun createDailySummary(forecasts: List<WeatherData>, date: LocalDate): WeatherData {
+        // Calculate average temperature and humidity
+        val avgTemperature = forecasts.map { it.temperature }.average()
+        val avgHumidity = forecasts.map { it.humidity }.average().toInt()
+
+        // Find min and max temperatures
+        val minTemp = forecasts.minByOrNull { it.minTemperature }?.minTemperature ?: 0.0
+        val maxTemp = forecasts.maxByOrNull { it.maxTemperature }?.maxTemperature ?: 0.0
+
+        // Find the most common description and icon
+        val descriptionCounts = forecasts.groupBy { it.description }.mapValues { it.value.size }
+        val mostCommonDescription = descriptionCounts.maxByOrNull { it.value }?.key ?: ""
+
+        val iconCounts = forecasts.groupBy { it.iconCode }.mapValues { it.value.size }
+        val mostCommonIcon = iconCounts.maxByOrNull { it.value }?.key ?: ""
+
+        // Create a summary forecast at noon for the day
+        val noonTime = LocalDateTime.of(date, LocalTime.of(12, 0))
+
+        return WeatherData(
+            city = forecasts.first().city,
+            forecastDate = noonTime,
+            temperature = avgTemperature,
+            minTemperature = minTemp,
+            maxTemperature = maxTemp,
+            humidity = avgHumidity,
+            description = mostCommonDescription,
+            iconCode = mostCommonIcon
+        )
+    }
+
+    /**
+     * Deletes all weather data with forecast date before the current date.
      * Returns the number of records deleted.
      */
     fun deleteOldWeatherData(): Int {
         val today = LocalDate.now()
-        val firstDayOfCurrentMonth = today.withDayOfMonth(1)
-        val firstDayOfPreviousMonth = firstDayOfCurrentMonth.minusMonths(1)
-        val startOfPreviousMonth = LocalDateTime.of(firstDayOfPreviousMonth, LocalTime.MIN)
-        return weatherRepository.deleteByForecastDateBefore(startOfPreviousMonth)
+        val startOfDay = LocalDateTime.of(today, LocalTime.MIN)
+        return weatherRepository.deleteByForecastDateBefore(startOfDay)
     }
 
     /**
-     * Scheduled task that runs daily at midnight to delete old weather data,
-     * keeping data from the current month and the previous month
+     * Scheduled task that runs daily at midnight to delete old weather data
      */
     @Scheduled(cron = "0 0 0 * * ?") // Run at midnight every day
     fun scheduledCleanup() {
