@@ -5,7 +5,7 @@ services:
     image: postgres:17.4
     container_name: win-postgres
     environment:
-      POSTGRES_DB: win_db
+      POSTGRES_DB: win_dt b
       POSTGRES_USER: win_user
       POSTGRES_PASSWORD: win_pass
     ports:
