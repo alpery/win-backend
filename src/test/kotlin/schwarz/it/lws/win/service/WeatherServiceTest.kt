@@ -315,6 +315,71 @@ class WeatherServiceTest {
     }
 
     @Test
+    fun `createDailySummary should round temperature values to 2 decimal places`() {
+        // Given
+        val today = LocalDate.now()
+
+        // Create weather data with temperature values that have many decimal places
+        val weatherDataList = listOf(
+            WeatherData(
+                id = createTestUUID(1),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(9, 0)),
+                temperature = 14.194999999999999,
+                minTemperature = 13.765432109876543,
+                maxTemperature = 14.987654321098765,
+                humidity = 65,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = createTestUUID(2),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(12, 0)),
+                temperature = 15.555555555555555,
+                minTemperature = 14.222222222222222,
+                maxTemperature = 16.888888888888888,
+                humidity = 60,
+                description = "Clear sky",
+                iconCode = "01d"
+            ),
+            WeatherData(
+                id = createTestUUID(3),
+                city = testCity,
+                forecastDate = LocalDateTime.of(today, LocalTime.of(15, 0)),
+                temperature = 16.333333333333333,
+                minTemperature = 15.111111111111111,
+                maxTemperature = 17.555555555555555,
+                humidity = 55,
+                description = "Clear sky",
+                iconCode = "01d"
+            )
+        )
+
+        // Use reflection to access the private createDailySummary method
+        val createDailySummaryMethod = WeatherService::class.java.getDeclaredMethod(
+            "createDailySummary",
+            List::class.java,
+            LocalDate::class.java
+        )
+        createDailySummaryMethod.isAccessible = true
+
+        // When
+        val summary = createDailySummaryMethod.invoke(weatherService, weatherDataList, today) as WeatherData
+
+        // Then
+        // The average temperature should be (14.194999999999999 + 15.555555555555555 + 16.333333333333333) / 3 = 15.36
+        // But rounded to 2 decimal places, it should be 15.36
+        assertEquals(15.36, summary.temperature, 0.001, "Average temperature should be rounded to 2 decimal places")
+
+        // The min temperature should be 13.765432109876543, but rounded to 2 decimal places, it should be 13.76
+        assertEquals(13.76, summary.minTemperature, 0.001, "Min temperature should be rounded to 2 decimal places")
+
+        // The max temperature should be 17.555555555555555, but rounded to 2 decimal places, it should be 17.55
+        assertEquals(17.55, summary.maxTemperature, 0.001, "Max temperature should be rounded to 2 decimal places")
+    }
+
+    @Test
     fun `deleteOldWeatherData should delete data older than current date`() {
         // Given
         val deletedCount = 5

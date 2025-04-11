@@ -1,12 +1,12 @@
-# Docker Compose Setup for Win Application
+# Docker Setup for Win Application
 
-This README provides instructions on how to build and run the Win application using Docker Compose.
+This README provides instructions on how to build and run the Win application using Docker.
 
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) installed on your machine
-- [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine
 - [OpenWeatherMap API Key](#openweathermap-api-key) (required for weather data)
+- PostgreSQL database (can be run separately or in another container)
 
 ## OpenWeatherMap API Key
 
@@ -23,17 +23,17 @@ This application uses the OpenWeatherMap API to fetch weather data. Follow these
 
 **Note:** The `.env` file is already added to `.gitignore` to ensure your API key is not committed to the repository.
 
-## Important: PostgreSQL Port Conflict Warning
+## Important: Database Configuration
 
-Before running the application, ensure that you don't have any other PostgreSQL instances running on your computer. The application uses PostgreSQL on port 5432, and having another instance running on the same port will cause conflicts and prevent the application from starting properly.
+The application requires a PostgreSQL database to function properly. The Dockerfile is configured to connect to a PostgreSQL database with the following default settings:
 
-To check for running PostgreSQL instances:
-- On Linux/Mac: `ps aux | grep postgres`
-- On Windows: Check Task Manager or run `netstat -ano | findstr 5432`
+- Host: db
+- Port: 5432
+- Database: win_db
+- Username: win_user
+- Password: win_pass
 
-If you have another PostgreSQL instance running, you have two options:
-1. Stop the existing PostgreSQL service before running this application
-2. Modify the `docker-compose.yml` file to use a different port for the PostgreSQL service
+You can modify these settings by providing environment variables when running the Docker container.
 
 ## Building and Running the Application
 
@@ -42,39 +42,78 @@ If you have another PostgreSQL instance running, you have two options:
    cd /path/to/win
    ```
 
-2. Build and start all services using Docker Compose:
+2. Build the Docker image:
    ```bash
-   docker-compose up --build
+   docker build -t win-app .
    ```
 
-   This command will:
-   - Build the application image using the Dockerfile
-   - Pull the PostgreSQL and Redis images if not already available
-   - Start all three services (app, db, redis)
-   - Connect the application to the database and Redis services
-
-3. To run the services in the background (detached mode):
+3. Run the application container:
    ```bash
-   docker-compose up --build -d
+   docker run -p 8080:8080 \
+     -e SPRING_DATASOURCE_URL=jdbc:postgresql://your-db-host:5432/win_db \
+     -e SPRING_DATASOURCE_USERNAME=win_user \
+     -e SPRING_DATASOURCE_PASSWORD=win_pass \
+     -e OPENWEATHERMAP_API_KEY=your_api_key_here \
+     win-app
    ```
 
-4. Once all services are running, the application will be available at:
+   Replace:
+   - `your-db-host` with the hostname or IP address of your PostgreSQL database
+   - `your_api_key_here` with your actual OpenWeatherMap API key
+
+4. To run the container in the background (detached mode):
+   ```bash
+   docker run -d -p 8080:8080 \
+     -e SPRING_DATASOURCE_URL=jdbc:postgresql://your-db-host:5432/win_db \
+     -e SPRING_DATASOURCE_USERNAME=win_user \
+     -e SPRING_DATASOURCE_PASSWORD=win_pass \
+     -e OPENWEATHERMAP_API_KEY=your_api_key_here \
+     win-app
+   ```
+
+5. Once the container is running, the application will be available at:
    ```
    http://localhost:8080
    ```
 
+## Running with a PostgreSQL Container
+
+If you don't have a PostgreSQL server, you can run one in a Docker container:
+
+1. Start a PostgreSQL container:
+   ```bash
+   docker run -d \
+     --name postgres \
+     -e POSTGRES_DB=win_db \
+     -e POSTGRES_USER=win_user \
+     -e POSTGRES_PASSWORD=win_pass \
+     -p 5432:5432 \
+     postgres:17.4
+   ```
+
+2. Run the application container, connecting to the PostgreSQL container:
+   ```bash
+   docker run -d -p 8080:8080 \
+     -e SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/win_db \
+     -e SPRING_DATASOURCE_USERNAME=win_user \
+     -e SPRING_DATASOURCE_PASSWORD=win_pass \
+     -e OPENWEATHERMAP_API_KEY=your_api_key_here \
+     --link postgres \
+     win-app
+   ```
+
 ## Stopping the Application
 
-1. If running in the foreground, press `Ctrl+C` to stop all services.
+1. If running in the foreground, press `Ctrl+C` to stop the container.
 
 2. If running in detached mode, use:
    ```bash
-   docker-compose down
+   docker stop <container_id>
    ```
 
-3. To stop and remove all containers, networks, and volumes:
+   You can get the container ID with:
    ```bash
-   docker-compose down -v
+   docker ps
    ```
 
 ## Service Details
@@ -84,7 +123,6 @@ If you have another PostgreSQL instance running, you have two options:
   - Database: win_db
   - Username: win_user
   - Password: win_pass
-- **Redis**: Cache running on port 6379
 
 ## API Endpoints
 
@@ -102,14 +140,17 @@ If you have another PostgreSQL instance running, you have two options:
 
 ## Viewing Logs
 
-To view logs for a specific service:
+To view logs for the Docker container:
 ```bash
-docker-compose logs app    # Application logs
-docker-compose logs db     # PostgreSQL logs
-docker-compose logs redis  # Redis logs
+docker logs <container_id>
 ```
 
 Add the `-f` flag to follow the logs:
 ```bash
-docker-compose logs -f app
+docker logs -f <container_id>
+```
+
+You can get the container ID with:
+```bash
+docker ps
 ```

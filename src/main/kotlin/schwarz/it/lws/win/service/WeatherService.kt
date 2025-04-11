@@ -154,12 +154,12 @@ class WeatherService @Autowired constructor(
      */
     private fun createDailySummary(forecasts: List<WeatherData>, date: LocalDate): WeatherData {
         // Calculate average temperature and humidity
-        val avgTemperature = forecasts.map { it.temperature }.average()
+        val avgTemperature = (forecasts.map { it.temperature }.average() * 100).toInt() / 100.0
         val avgHumidity = forecasts.map { it.humidity }.average().toInt()
 
         // Find min and max temperatures
-        val minTemp = forecasts.minByOrNull { it.minTemperature }?.minTemperature ?: 0.0
-        val maxTemp = forecasts.maxByOrNull { it.maxTemperature }?.maxTemperature ?: 0.0
+        val minTemp = forecasts.minByOrNull { it.minTemperature }?.minTemperature?.let { (it * 100).toInt() / 100.0 } ?: 0.0
+        val maxTemp = forecasts.maxByOrNull { it.maxTemperature }?.maxTemperature?.let { (it * 100).toInt() / 100.0 } ?: 0.0
 
         // Find the most common description and icon
         val descriptionCounts = forecasts.groupBy { it.description }.mapValues { it.value.size }
